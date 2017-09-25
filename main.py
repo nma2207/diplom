@@ -4,6 +4,8 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import skimage.filters
+import filters
+import scipy.signal as ssig
 
 def mainCV2():
     img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
@@ -45,5 +47,30 @@ def mainSkiImage():
     plt.show()
     print(np.std(img - dst))
 
+def test():
+    img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
+    kernel = filters.getGaussian(10, (131,131))
+    dst = cv2.filter2D(img,-1, kernel)
+    print('go fft')
+    dst3 =ssig.fftconvolve(img, kernel, mode = 'same')
+    print('go no fft')
+    dst2 = ssig.convolve2d(img, kernel, mode = "same")
+    print('np.mean(dst-img) =',np.mean(dst-img))
+    print('np.var(dst-img) =',np.var(dst-img))
+    #print('np.var(dst-dst2) =',np.var(dst-dst2))
+    #print('np.mean(img - dst2) =',np.mean(img - dst2))
+    print('np.var(dst2-dst3) =', np.var(dst2-dst3))
+    print('np.mean(dst2-dst3) =', np.mean(dst2 - dst3))
+    plt.figure()
+    plt.subplot(1,4,1)
+    plt.imshow(img, cmap = 'gray')
+    plt.subplot(1,4,2)
+    plt.imshow(dst, cmap = 'gray')
+    plt.subplot(1,4,3)
+    plt.imshow(dst2, cmap = 'gray')
+    plt.subplot(1,4,4)
+    plt.imshow(kernel, cmap= 'gray')
+    plt.show()
+
 if __name__ == "__main__":
-    mainSkiImage()
+    test()
