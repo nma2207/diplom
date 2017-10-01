@@ -50,8 +50,9 @@ def mainSkiImage():
 
 def test():
     img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
-    kernel = filters.getGaussian(10, (3,3))
+    kernel = filters.getGaussian(1, (13,13))
     dst = cv2.filter2D(img,-1, kernel)
+    img = img / 255.
     print('go fft')
     dst2 =ssig.fftconvolve(img, kernel, mode = 'full')
     print('go no fft')
@@ -62,18 +63,33 @@ def test():
     #print('np.mean(img - dst2) =',np.mean(img - dst2))
     #print('np.var(dst2-dst3) =', np.var(dst2-dst3))
     #print('np.mean(dst2-dst3) =', np.mean(dst2 - dst3))
-    deblurred = deblur.blindLucyRichardsonMethod(dst2, 1, 1, 5)
+
+
+    #dst2/=255
+
+    deblurred,err, k = deblur.blindLucyRichardsonMethod(dst2,img, 1, 1, 100)
+    for i in range(deblurred.shape[0]):
+        for j in range(deblurred.shape[1]):
+            if deblurred[i,j]<0:
+                deblurred[i,j] = 0
+            if deblurred[i,j]>1:
+                deblurred[i,j] = 1
     print(deblurred)
     #print(np.var(deblurred[:img.shape[0], :img.shape[1]] - img))
     plt.figure()
-    plt.subplot(1,4,1)
+    plt.subplot(2,4,1)
     plt.imshow(img, cmap = 'gray')
-    plt.subplot(1,4,2)
+    plt.subplot(2,4,2)
     plt.imshow(dst2, cmap = 'gray')
-    plt.subplot(1,4,3)
+    plt.subplot(2,4,3)
     plt.imshow(deblurred, cmap = 'gray')
-    plt.subplot(1,4,4)
+    plt.subplot(2,4,4)
     plt.imshow(kernel, cmap= 'gray')
+    plt.subplot(2,4,8)
+    plt.imshow(k, cmap= 'gray')
+    plt.show()
+    plt.figure()
+    plt.plot(err)
     plt.show()
 
 if __name__ == "__main__":

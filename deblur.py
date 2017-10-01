@@ -3,7 +3,7 @@
 import numpy as np
 import filters
 import scipy.signal
-
+import image
 
 def inverseFilter(g,h):
     width_g = g.shape[0]
@@ -22,12 +22,17 @@ def inverseFilter(g,h):
     f = f[0:width_g, 0:height_g]
     return f
 
-def blindLucyRichardsonMethod(img, N, M, K, initKernel = 'gauss'):
+def blindLucyRichardsonMethod(img,original, N, M, K, initKernel = 'uniform'):
     kernel = None
     if initKernel=='gauss':
         kernel = filters.getGaussian(1, img.shape)
+    elif initKernel=='uniform':
+        kernel = np.ones(img.shape)
+        kernel /= np.sum(kernel)
 
     f = np.copy(img)
+    err = []
+    err.append(np.var(original-f[1:513, 1:513]))
     for k in range(K):
         print(k)
         for n in range(N):
@@ -39,7 +44,9 @@ def blindLucyRichardsonMethod(img, N, M, K, initKernel = 'gauss'):
             print('m--',m)
             div = img / (scipy.signal.fftconvolve(kernel, f, mode = 'same'))
             f = f*(scipy.signal.correlate(kernel, div, mode = 'same', method='fft'))
-    return f
+        image.make0to1(f)
+        err.append(np.var(original-f[1:513, 1:513]))
+    return f, np.array(err), kernel
 
 
 
