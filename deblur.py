@@ -25,27 +25,35 @@ def inverseFilter(g,h):
 def blindLucyRichardsonMethod(img,original, N, M, K, initKernel = 'uniform'):
     kernel = None
     if initKernel=='gauss':
-        kernel = filters.getGaussian(1, img.shape)
+        kernel = np.zeros(img.shape)
+        kernel[261:264, 261:264] = filters.getGaussian(1, (3,3))
+
     elif initKernel=='uniform':
         kernel = np.ones(img.shape)
         kernel /= np.sum(kernel)
 
     f = np.copy(img)
     err = []
-    err.append(np.var(original-f[1:513, 1:513]))
+    byX = (f.shape[0] - original.shape[0])//2
+    byY = (f.shape[1] - original.shape[1]) // 2
+    up = byX
+    down = original.shape[0]+byX
+    left = byY
+    right = original.shape[1]+byY
+    err.append(np.var(original-f[up:down, left:right]))
     for k in range(K):
         print(k)
         for n in range(N):
             print('n--',n)
             div = img / (scipy.signal.fftconvolve( f, kernel, mode = 'same'))
-            kernel =  kernel * (scipy.signal.correlate(f, div, mode = 'same', method = 'fft'))
+            kernel =  (1/np.sum(f))*kernel * (scipy.signal.correlate( div,f, mode = 'same', method = 'fft'))
         kernel /= np.sum(kernel)
         for m in range(M):
             print('m--',m)
-            div = img / (scipy.signal.fftconvolve(kernel, f, mode = 'same'))
-            f = f*(scipy.signal.correlate(kernel, div, mode = 'same', method='fft'))
+            div = img / (scipy.signal.fftconvolve( f,kernel, mode = 'same'))
+            f = (1/np.sum(kernel))*f*(scipy.signal.correlate( div,kernel, mode = 'same', method='fft'))
         image.make0to1(f)
-        err.append(np.var(original-f[1:513, 1:513]))
+        err.append(np.var(original-f[up:down, left:right]))
     return f, np.array(err), kernel
 
 

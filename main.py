@@ -7,6 +7,7 @@ import skimage.filters
 import filters
 import scipy.signal as ssig
 import deblur
+from skimage import restoration
 
 def mainCV2():
     img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
@@ -55,6 +56,7 @@ def test():
     img = img / 255.
     print('go fft')
     dst2 =ssig.fftconvolve(img, kernel, mode = 'full')
+    print(dst2.shape)
     print('go no fft')
     #dst2 = ssig.convolve2d(img, kernel, mode = "full")
     print('np.mean(dst-img) =',np.mean(dst-img))
@@ -67,13 +69,8 @@ def test():
 
     #dst2/=255
 
-    deblurred,err, k = deblur.blindLucyRichardsonMethod(dst2,img, 1, 1, 100)
-    for i in range(deblurred.shape[0]):
-        for j in range(deblurred.shape[1]):
-            if deblurred[i,j]<0:
-                deblurred[i,j] = 0
-            if deblurred[i,j]>1:
-                deblurred[i,j] = 1
+    deblurred,err, k = deblur.blindLucyRichardsonMethod(dst2,img, 1, 1, 30, initKernel="uniform")
+
     print(deblurred)
     #print(np.var(deblurred[:img.shape[0], :img.shape[1]] - img))
     plt.figure()
@@ -87,7 +84,12 @@ def test():
     plt.imshow(kernel, cmap= 'gray')
     plt.subplot(2,4,8)
     plt.imshow(k, cmap= 'gray')
+
+    #debb =  restoration.richardson_lucy(dst2, kernel, iterations=50)
+    plt.subplot(2,4,7)
+    #plt.imshow(debb, cmap = 'gray')
     plt.show()
+
     plt.figure()
     plt.plot(err)
     plt.show()
