@@ -4,6 +4,7 @@ import numpy as np
 import filters
 import scipy.signal
 import image
+import matplotlib.pyplot as plt
 
 def inverseFilter(g,h):
     width_g = g.shape[0]
@@ -31,9 +32,14 @@ def blindLucyRichardsonMethod(img,original, N, M, K, initKernel = 'uniform'):
     elif initKernel=='uniform':
         kernel = np.ones(img.shape)
         kernel /= np.sum(kernel)
+    elif initKernel == 'horizontal':
+        kernel = np.zeros(img.shape)
+        kernel[img.shape[0]//2,:]= np.ones((img.shape[1]))
+        kernel/=np.sum(kernel)
 
     f = np.copy(img)
     err = []
+    err1 = []
     byX = (f.shape[0] - original.shape[0])//2
     byY = (f.shape[1] - original.shape[1]) // 2
     up = byX
@@ -52,9 +58,71 @@ def blindLucyRichardsonMethod(img,original, N, M, K, initKernel = 'uniform'):
             print('m--',m)
             div = img / (scipy.signal.fftconvolve( f,kernel, mode = 'same'))
             f = (1/np.sum(kernel))*f*(scipy.signal.correlate( div,kernel, mode = 'same', method='fft'))
-        image.make0to1(f)
+        plt.imsave('l_r_exp/uniform3/_'+str(k)+'.bmp', image.make0to1(f), cmap = 'gray' )
         err.append(np.var(original-f[up:down, left:right]))
+        err1.append(np.var(img - scipy.signal.fftconvolve(f, kernel, mode='same')))
+    plt.figure()
+    plt.plot(np.array(err1))
+    plt.show()
     return f, np.array(err), kernel
+
+def gradientDistent(g, h, itCount, gradientRate):
+    f = np.copy(g)
+    err = []
+    for i in range(itCount):
+        print(i, end=' ')
+        r = g - scipy.signal.convolve(f, h, mode='same', method='fft')
+        dedf = - 2* (scipy.signal.correlate(r,h, mode='same', method='fft'))
+        f -= gradientRate*dedf
+        e = np.var(g - scipy.signal.convolve(f, h, mode='same', method='fft'))
+        print(e)
+        err.append(e)
+    plt.figure()
+    plt.plot(np.array(err))
+    plt.show()
+    return f
+
+def gradientDistentBlind(g, itCount, gradientRate, initKernel = 'uniform'):
+    h = None
+    if initKernel=='gauss':
+        h = np.zeros(g.shape)
+        h[261:264, 261:264] = filters.getGaussian(1, (3,3))
+
+    elif initKernel=='uniform':
+        h = np.ones(g.shape)
+        h /= np.sum(h)
+    elif initKernel == 'horizontal':
+        h = np.zeros(g.shape)
+        h[g.shape[0]//2,:]= np.ones((g.shape[1]))
+        h/=np.sum(h)
+
+    f = np.copy(g)
+    err = []
+    for i in range(itCount):
+        print(i, end=' ')
+        r = g - scipy.signal.convolve(f, h, mode='same', method='fft')
+        dedf = - 2* (scipy.signal.correlate(r,h, mode='same', method='fft'))
+        f -= gradientRate*dedf
+
+        dedh = -2*(scipy.signal.correlate(r,f, mode='same', method='fft'))
+        h-=gradientRate*dedh
+        e = np.var(g - scipy.signal.convolve(f, h, mode='same', method='fft'))
+        h/=np.sum(h)
+        print(e)
+        err.append(e)
+        plt.imsave("gradient_exp/1/_"+str(i)+".bmp", image.make0to1(f), cmap='gray')
+
+    plt.figure()
+    plt.subplot(1,4,1)
+    plt.imshow(g, cmap='gray')
+    plt.subplot(1,4,2)
+    plt.imshow(f, cmap='gray')
+    plt.subplot(1,4,3)
+    plt.imshow(h, cmap='gray')
+    plt.subplot(1,4,4)
+    plt.plot(np.array(err))
+    plt.show()
+    return f
 
 
 

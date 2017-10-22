@@ -51,7 +51,7 @@ def mainSkiImage():
 
 def test():
     img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
-    kernel = filters.getGaussian(1, (13,13))
+    kernel = filters.getGaussian(10, (13,13))
     dst = cv2.filter2D(img,-1, kernel)
     img = img / 255.
     print('go fft')
@@ -69,7 +69,7 @@ def test():
 
     #dst2/=255
 
-    deblurred,err, k = deblur.blindLucyRichardsonMethod(dst2,img, 1, 1, 30, initKernel="uniform")
+    deblurred,err, k = deblur.blindLucyRichardsonMethod(dst2,img,1, 1, 100, initKernel="uniform")
 
     print(deblurred)
     #print(np.var(deblurred[:img.shape[0], :img.shape[1]] - img))
@@ -94,5 +94,21 @@ def test():
     plt.plot(err)
     plt.show()
 
+def testGradientDistent():
+    img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
+    kernel = filters.getGaussian(1, (13, 13))
+    img = img / 255.
+    print('go fft')
+    dst2 = ssig.fftconvolve(img, kernel, mode='full')
+    deblurred = deblur.gradientDistentBlind(dst2, 1, 1e-10)
+    byX = (dst2.shape[0] - img.shape[0])//2
+    byY = (dst2.shape[1] - img.shape[1]) // 2
+    up = byX
+    down = img.shape[0]+byX
+    left = byY
+    right = img.shape[1]+byY
+    print('original vs blur  ',np.var(img-dst2[up:down, left:right]))
+    print('original vs deblur',np.var(img - deblurred[up:down, left:right]))
+
 if __name__ == "__main__":
-    test()
+    testGradientDistent()
