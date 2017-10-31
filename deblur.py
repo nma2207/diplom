@@ -5,6 +5,7 @@ import filters
 import scipy.signal
 import image
 import matplotlib.pyplot as plt
+import math
 
 def inverseFilter(g,h):
     width_g = g.shape[0]
@@ -22,6 +23,31 @@ def inverseFilter(g,h):
     f = np.real(f)
     f = f[0:width_g, 0:height_g]
     return f
+def windowFuncForOne(n, Nx, Nw):
+    n+=1
+    if 1<=n<=Nw:
+        return 0.5*(1-math.cos((n-1)*math.pi/Nw))
+    elif Nw+1 <= n <= Nx-Nw:
+        return 1
+    elif Nx-Nw+1 <= n <= Nx:
+        return 0.5*(1-math.cos((Nx-n)*math.pi/Nw))
+    else:
+        print(n, Nx, Nw)
+        return 0
+def windowFunction(x,y,Nwx,Nwy, Nx, Ny):
+    wx = windowFuncForOne(x, Nx, Nwx)
+    wy = windowFuncForOne(y, Ny, Nwy)
+    if wx!=None and wy!=None:
+        return wx*wy
+    else:
+        return None
+def windowFunctionBig(Nwx,Nwy, Nx, Ny):
+    result = np.zeros((Ny,Nx))
+    for i in range(Ny):
+        for j in range(Nx):
+            result[i,j] = windowFunction(i,j,Nwx, Nwy, Nx, Ny)
+    return result
+
 
 def blindLucyRichardsonMethod(img,original, N, M, K, initKernel = 'uniform'):
     kernel = None
@@ -30,7 +56,7 @@ def blindLucyRichardsonMethod(img,original, N, M, K, initKernel = 'uniform'):
         kernel[261:264, 261:264] = filters.getGaussian(1, (3,3))
 
     elif initKernel=='uniform':
-        kernel = np.ones(img.shape)
+        kernel = scipy.signal.correlate(img,img, mode='same', method='fft')
         kernel /= np.sum(kernel)
     elif initKernel == 'horizontal':
         kernel = np.zeros(img.shape)
@@ -59,6 +85,54 @@ def blindLucyRichardsonMethod(img,original, N, M, K, initKernel = 'uniform'):
             div = img / (scipy.signal.fftconvolve( f,kernel, mode = 'same'))
             f = (1/np.sum(kernel))*f*(scipy.signal.correlate( div,kernel, mode = 'same', method='fft'))
         plt.imsave('l_r_exp/uniform3/_'+str(k)+'.bmp', image.make0to1(f), cmap = 'gray' )
+        err.append(np.var(original-f[up:down, left:right]))
+        err1.append(np.var(img - scipy.signal.fftconvolve(f, kernel, mode='same')))
+    plt.figure()
+    plt.plot(np.array(err1))
+    plt.show()
+    return f, np.array(err), kernel
+
+def blindLucyRichardsonMethodWithWindow(img,original, N, M, K,winN, initKernel = 'uniform'):
+    kernel = None
+    if initKernel=='gauss':
+        kernel = np.zeros(img.shape)
+        kernel[261:264, 261:264] = filters.getGaussian(1, (3,3))
+
+    elif initKernel=='uniform':
+        kernel = np.ones(img.shape)
+        kernel /= np.sum(kernel)
+    elif initKernel == 'horizontal':
+        kernel = np.zeros(img.shape)
+        kernel[img.shape[0]//2,:]= np.ones((img.shape[1]))
+        kernel/=np.sum(kernel)
+
+    f = np.copy(img)
+    err = []
+    err1 = []
+    byX = (f.shape[0] - original.shape[0])//2
+    byY = (f.shape[1] - original.shape[1]) // 2
+    up = byX
+    down = original.shape[0]+byX
+    left = byY
+    right = original.shape[1]+byY
+    w = windowFunctionBig(winN, winN, img.shape[1], img.shape[0])
+    err.append(np.var(original-f[up:down, left:right]))
+    for k in range(K):
+        print(k)
+        for n in range(N):
+            print('n--',n)
+            r = scipy.signal.fftconvolve(kernel, f, mode='same')
+            r = r*w + img *(1-w)
+            div = img / r
+            kernel =  (1/np.sum(f))*kernel * (scipy.signal.correlate( div,f, mode = 'same', method = 'fft'))
+        kernel /= np.sum(kernel)
+        for m in range(M):
+            print('m--',m)
+            r = scipy.signal.fftconvolve(kernel, f, mode='same')
+            r = r*w + img *(1-w)
+            div = img / r
+            f = (1/np.sum(kernel))*f*(scipy.signal.correlate( div,kernel, mode = 'same', method='fft'))
+        plt.imsave('l_r_exp/uniform1Win/_'+str(k)+'.bmp', image.make0to1(f), cmap = 'gray' )
         err.append(np.var(original-f[up:down, left:right]))
         err1.append(np.var(img - scipy.signal.fftconvolve(f, kernel, mode='same')))
     plt.figure()
@@ -101,12 +175,14 @@ def gradientDistentBlind(g, itCount, gradientRate, initKernel = 'uniform'):
     for i in range(itCount):
         print(i, end=' ')
         r = g - scipy.signal.convolve(f, h, mode='same', method='fft')
-        dedf = - 2* (scipy.signal.correlate(r,h, mode='same', method='fft'))
+        dedf = - 2* (scipy.signal.correlate(r,h, mode='same', method='fft'))+2*h
         f -= gradientRate*dedf
-
-        dedh = -2*(scipy.signal.correlate(r,f, mode='same', method='fft'))
+        if(f.min()<0):
+            print("ERRROR")
+            return f
+        dedh = -2*(scipy.signal.correlate(r,f, mode='same', method='fft'))+2*f
         h-=gradientRate*dedh
-        e = np.var(g - scipy.signal.convolve(f, h, mode='same', method='fft'))
+        e = np.var(g - scipy.signal.convolve(f, h, mode='same', method='fft')+f*f+h*h)
         h/=np.sum(h)
         print(e)
         err.append(e)
@@ -122,6 +198,15 @@ def gradientDistentBlind(g, itCount, gradientRate, initKernel = 'uniform'):
     plt.subplot(1,4,4)
     plt.plot(np.array(err))
     plt.show()
+    return f
+
+def mlDeconvolution(g, h, itCount, rate):
+    f = np.copy(g)
+    for i in range(itCount):
+        print(i)
+        r = scipy.signal.fftconvolve(f, h, mode='same')
+        d = (g-r)/r
+        f =f-rate* scipy.signal.correlate(d, h, mode='same', method='fft')
     return f
 
 

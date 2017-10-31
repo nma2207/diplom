@@ -8,6 +8,7 @@ import filters
 import scipy.signal as ssig
 import deblur
 from skimage import restoration
+import image
 
 def mainCV2():
     img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
@@ -50,8 +51,8 @@ def mainSkiImage():
     print(np.std(img - dst))
 
 def test():
-    img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
-    kernel = filters.getGaussian(10, (13,13))
+    img = cv2.imread('original/f16.jpg', cv2.IMREAD_GRAYSCALE)
+    kernel = filters.getGaussian(1, (13,13))
     dst = cv2.filter2D(img,-1, kernel)
     img = img / 255.
     print('go fft')
@@ -69,7 +70,7 @@ def test():
 
     #dst2/=255
 
-    deblurred,err, k = deblur.blindLucyRichardsonMethod(dst2,img,1, 1, 100, initKernel="uniform")
+    deblurred,err, k = deblur.blindLucyRichardsonMethod(dst2,img,2, 1, 100)
 
     print(deblurred)
     #print(np.var(deblurred[:img.shape[0], :img.shape[1]] - img))
@@ -79,7 +80,7 @@ def test():
     plt.subplot(2,4,2)
     plt.imshow(dst2, cmap = 'gray')
     plt.subplot(2,4,3)
-    plt.imshow(deblurred, cmap = 'gray')
+    plt.imshow(image.make0to1(deblurred), cmap = 'gray')
     plt.subplot(2,4,4)
     plt.imshow(kernel, cmap= 'gray')
     plt.subplot(2,4,8)
@@ -95,12 +96,12 @@ def test():
     plt.show()
 
 def testGradientDistent():
-    img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
+    img = cv2.imread('original/f16.jpg', cv2.IMREAD_GRAYSCALE)
     kernel = filters.getGaussian(1, (13, 13))
     img = img / 255.
     print('go fft')
-    dst2 = ssig.fftconvolve(img, kernel, mode='full')
-    deblurred = deblur.gradientDistentBlind(dst2, 1, 1e-10)
+    dst2 = ssig.fftconvolve(img, kernel, mode='same')
+    deblurred = deblur.gradientDistentBlind(dst2, 150, 1e-2)
     byX = (dst2.shape[0] - img.shape[0])//2
     byY = (dst2.shape[1] - img.shape[1]) // 2
     up = byX
@@ -109,6 +110,41 @@ def testGradientDistent():
     right = img.shape[1]+byY
     print('original vs blur  ',np.var(img-dst2[up:down, left:right]))
     print('original vs deblur',np.var(img - deblurred[up:down, left:right]))
+def testWindow():
+    w = deblur.windowFunctionBig(5,5,17,17)
+    print(w)
+    plt.figure()
+    plt.imshow(w, cmap = 'gray')
+    plt.show()
+
+def mlTest():
+    img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
+    kernel = filters.getGaussian(2, (13, 13))
+    img = img / 255.
+    print('go fft')
+    dst2 = ssig.fftconvolve(img, kernel, mode='full')
+    deblurred = deblur.mlDeconvolution(dst2, kernel, 500, 0.01)
+    #deblurred = image.make0to1(deblurred)
+
+    byX = (dst2.shape[0] - img.shape[0]) // 2
+    byY = (dst2.shape[1] - img.shape[1]) // 2
+    up = byX
+    down = img.shape[0] + byX
+    left = byY
+    right = img.shape[1] + byY
+    print('original vs blur  ', np.var(img - dst2[up:down, left:right]))
+    print('original vs deblur', np.var(img - deblurred[up:down, left:right]))
+
+    plt.subplot(1,4,1)
+    plt.imshow(img, cmap = 'gray')
+    plt.subplot(1,4,2)
+    plt.imshow(dst2, cmap = 'gray')
+    plt.subplot(1,4,3)
+    plt.imshow(deblurred, cmap='gray')
+    plt.subplot(1,4,4)
+    plt.imshow(kernel, cmap='gray')
+    plt.show()
 
 if __name__ == "__main__":
+
     testGradientDistent()
