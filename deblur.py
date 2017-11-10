@@ -156,11 +156,11 @@ def gradientDistent(g, h, itCount, gradientRate):
     plt.show()
     return f
 
-def gradientDistentBlind(g, itCount, gradientRate, initKernel = 'uniform'):
+def gradientDistentBlind(g,original, itCount, gradientRate, initKernel = 'uniform'):
     h = None
     if initKernel=='gauss':
         h = np.zeros(g.shape)
-        h[261:264, 261:264] = filters.getGaussian(1, (3,3))
+        h[256:269, 256:269] = filters.getGaussian(1, (13,13))
 
     elif initKernel=='uniform':
         h = np.ones(g.shape)
@@ -179,7 +179,8 @@ def gradientDistentBlind(g, itCount, gradientRate, initKernel = 'uniform'):
         f -= gradientRate*dedf
         if(f.min()<0):
             print("ERRROR")
-            return f
+            f += gradientRate*dedf
+            break
         dedh = -2*(scipy.signal.correlate(r,f, mode='same', method='fft'))+2*f
         h-=gradientRate*dedh
         e = np.var(g - scipy.signal.convolve(f, h, mode='same', method='fft')+f*f+h*h)
@@ -200,13 +201,30 @@ def gradientDistentBlind(g, itCount, gradientRate, initKernel = 'uniform'):
     plt.show()
     return f
 
-def mlDeconvolution(g, h, itCount, rate):
+def mlDeconvolution(g,  itCount, rate, initKernel = 'gauss'):
+    if initKernel=='gauss':
+        h = np.zeros(g.shape)
+        h[256:269, 256:269] = filters.getGaussian(1, (13,13))
+
+    elif initKernel=='uniform':
+        h = np.ones(g.shape)
+        h /= np.sum(h)
+    elif initKernel == 'horizontal':
+        h = np.zeros(g.shape)
+        h[g.shape[0]//2,:]= np.ones((g.shape[1]))
+        h/=np.sum(h)
     f = np.copy(g)
+    errs = []
     for i in range(itCount):
         print(i)
         r = scipy.signal.fftconvolve(f, h, mode='same')
         d = (g-r)/r
         f =f-rate* scipy.signal.correlate(d, h, mode='same', method='fft')
+        h= h- rate* scipy.signal.correlate(d, f, mode='same', method='fft')
+        err = np.sum(g*np.log(r)-r)
+        errs.append(err)
+        print(err)
+
     return f
 
 
