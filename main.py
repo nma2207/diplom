@@ -129,7 +129,7 @@ def testWindow():
 #########################################################################
 def mlTest():
     img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
-    kernel = filters.getGaussian(2, (13, 13))
+    kernel = filters.getGaussian(2, (13,+ 13))
     img = img / 255.
     print('go fft')
     dst2 = ssig.fftconvolve(img, kernel, mode='full')
@@ -174,7 +174,7 @@ def testWindowFunc():
     # print('np.var(dst2-dst3) =', np.var(dst2-dst3))
     # print('np.mean(dst2-dst3) =', np.mean(dst2 - dst3))
     # dst2/=255
-    deblurred, err, k = deblur.blindLucyRichardsonMethodWithWindow(dst2, img, 5,1,300,40, initKernel='gauss')
+    deblurred, err, k = deblur.blindLucyRichardsonMethodWithWindow(dst2, img, 5,1,1000,40, initKernel='uniform')
     print(deblurred)
     # print(np.var(deblurred[:img.shape[0], :img.shape[1]] - img))
     plt.figure()
@@ -233,4 +233,4 @@ def testOnCoordDistent():
 
 #########################################################################
 if __name__ == "__main__":
-    testOnCoordDistent()
+    testWindowFunc()

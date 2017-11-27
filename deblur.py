@@ -11,7 +11,7 @@ def getInitKernel(img, type):
     kernel = None
     if type=='gauss':
         kernel = np.zeros(img.shape)
-        kernel[261:264, 261:264] = filters.getGaussian(1, (3,3))
+        kernel[253:272, 253:272] = filters.getGaussian(10, (19,19))
 
     elif type =='uniform':
         kernel = scipy.signal.correlate(img,img, mode='same', method='fft')
@@ -124,6 +124,11 @@ def blindLucyRichardsonMethod(img,original, N, M, K, initKernel = 'uniform'):
 #########################################################################
 def blindLucyRichardsonMethodWithWindow(img,original, N, M, K,winN, initKernel = 'uniform'):
     kernel = getInitKernel(img, initKernel)
+    if initKernel=='uniform':
+        kernel = scipy.signal.correlate(img,img, mode='same', method='fft');
+        kernel/=np.sum(kernel)
+
+
     brightnessG = np.mean(img);
 
 
@@ -165,7 +170,7 @@ def blindLucyRichardsonMethodWithWindow(img,original, N, M, K,winN, initKernel =
         gamma = math.log(brightnessG, brightnessF)
         print('gamma =', gamma)
         f = gamma_correction(f, gamma)
-        plt.imsave('l_r_exp/uniform5Win/_'+str(k)+'.bmp', image.make0to1(f), cmap = 'gray' )
+        plt.imsave('l_r_exp/uniform6Win/_'+str(k)+'.bmp', image.make0to1(f), cmap = 'gray' )
         err.append(np.var(original-f[up:down, left:right]))
         err1.append(np.var(img - scipy.signal.fftconvolve(f, kernel, mode='same')))
     plt.figure()
