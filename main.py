@@ -158,8 +158,9 @@ def mlTest():
 
 #########################################################################
 def testWindowFunc():
-    img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
-    kernel = filters.getGaussian(5, (13, 13))
+    img = cv2.imread('original/f16.tif', cv2.IMREAD_GRAYSCALE)
+    kernel=filters.motion_blur(10, 20)
+    #kernel = filters.getGaussian(1.5, (13, 13))
     dst = cv2.filter2D(img, -1, kernel)
     img = img / 255.
     print('go fft')
@@ -174,7 +175,8 @@ def testWindowFunc():
     # print('np.var(dst2-dst3) =', np.var(dst2-dst3))
     # print('np.mean(dst2-dst3) =', np.mean(dst2 - dst3))
     # dst2/=255
-    deblurred, err, k = deblur.blindLucyRichardsonMethodWithWindow(dst2, img, 5,1,1000,40, initKernel='uniform')
+    deblurred, err, k = deblur.blindLucyRichardsonMethodWithWindow(dst2, img, 2,1,500,6,
+                                                                   initKernel='uniform')
     print(deblurred)
     # print(np.var(deblurred[:img.shape[0], :img.shape[1]] - img))
     plt.figure()
@@ -192,9 +194,11 @@ def testWindowFunc():
     plt.subplot(2, 4, 7)
     # plt.imshow(debb, cmap = 'gray')
     plt.show()
+    print('best', np.argmin(err))
     plt.figure()
     plt.plot(err)
     plt.show()
+
 
 
 #########################################################################
@@ -230,7 +234,28 @@ def testOnCoordDistent():
     plt.figure()
     plt.plot(errors)
     plt.show()
+def testFftdeblurImage():
+    img = cv2.imread('D:/diplom/l_r_exp/gaussWin_6_f16_15_12_1/_63.bmp', cv2.IMREAD_GRAYSCALE)
+    doubleImg = np.zeros((img.shape[0]*2, img.shape[1]*2))
+    doubleImg[:img.shape[0], :img.shape[1]] = img
+    print()
+    fft =  np.fft.fft2(img)
+    # for i in range(fft.shape[0]):
+    #     for j in range(fft.shape[1]):
+    #         if fft[i,j]<-16700576.9682:
+    #             fft[i,j]=0
 
-#########################################################################
+
+    print(np.max(fft), np.min(fft))
+    new =np.real( np.fft.ifft(fft))
+    new-=np.min(new)
+    new/=np.max(new)
+    print(np.min(new), np.max(new))
+    plt.figure()
+    plt.imshow(new, cmap='gray')
+    plt.show()
+
+
+########################################################################
 if __name__ == "__main__":
-    testWindowFunc()
+    testFftdeblurImage()

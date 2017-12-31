@@ -11,7 +11,7 @@ def getInitKernel(img, type):
     kernel = None
     if type=='gauss':
         kernel = np.zeros(img.shape)
-        kernel[253:272, 253:272] = filters.getGaussian(10, (19,19))
+        kernel[256:269, 256:269] = filters.getGaussian(10, (13,13))
 
     elif type =='uniform':
         kernel = scipy.signal.correlate(img,img, mode='same', method='fft')
@@ -123,13 +123,14 @@ def blindLucyRichardsonMethod(img,original, N, M, K, initKernel = 'uniform'):
 
 #########################################################################
 def blindLucyRichardsonMethodWithWindow(img,original, N, M, K,winN, initKernel = 'uniform'):
+    plt.imsave('l_r_exp/uniformWin_6_f16_22_12_3/__deblur.bmp', image.make0to1(img), cmap='gray')
     kernel = getInitKernel(img, initKernel)
     if initKernel=='uniform':
         kernel = scipy.signal.correlate(img,img, mode='same', method='fft');
         kernel/=np.sum(kernel)
 
 
-    brightnessG = np.mean(img);
+    brightnessG = np.mean(img)
 
 
     f = np.copy(img)
@@ -161,16 +162,19 @@ def blindLucyRichardsonMethodWithWindow(img,original, N, M, K,winN, initKernel =
             f = (1/np.sum(kernel))*f*(scipy.signal.correlate( div,kernel, mode = 'same', method='fft'))
         #print(np.where(f < 0).size)
         where_less_zero = np.where(f<0)
-        for it in range(len(where_less_zero)):
-            if where_less_zero[it].shape[0]==0:
+        print("len ", len(where_less_zero[0]))
+        for it in range(len(where_less_zero[0])):
+            if where_less_zero[0].shape[0]==0:
                 break
-            print('min', where_less_zero[it], f[where_less_zero[it][0], where_less_zero[it][1]])
-            f[where_less_zero[it][0], where_less_zero[it][1]]=0
+            print('min', where_less_zero)
+            print(f[where_less_zero[0][it], where_less_zero[1][it]])
+            f[where_less_zero[0][it], where_less_zero[1][it]]=0
         brightnessF = np.mean(f)
         gamma = math.log(brightnessG, brightnessF)
+        gamma-=0.1
         print('gamma =', gamma)
         f = gamma_correction(f, gamma)
-        plt.imsave('l_r_exp/uniform6Win/_'+str(k)+'.bmp', image.make0to1(f), cmap = 'gray' )
+        plt.imsave('l_r_exp/uniformWin_6_f16_22_12_3/_'+str(k)+'.bmp', image.make0to1(f), cmap = 'gray' )
         err.append(np.var(original-f[up:down, left:right]))
         err1.append(np.var(img - scipy.signal.fftconvolve(f, kernel, mode='same')))
     plt.figure()
