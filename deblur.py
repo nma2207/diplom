@@ -6,6 +6,7 @@ import scipy.signal
 import image
 import matplotlib.pyplot as plt
 import math
+import scipy.misc as smisc
 
 def getInitKernel(img, type):
     kernel = None
@@ -17,8 +18,9 @@ def getInitKernel(img, type):
         kernel = scipy.signal.correlate(img,img, mode='same', method='fft')
         kernel /= np.sum(kernel)
     elif type == 'horizontal':
+
         kernel = np.zeros(img.shape)
-        kernel[img.shape[0]//2,:]= np.ones((img.shape[1]))
+        kernel[img.shape[0]//2,img.shape[1]//2-1:img.shape[1]//2+2]= np.ones((3))
         kernel/=np.sum(kernel)
     return kernel
 #########################################################################
@@ -162,19 +164,19 @@ def blindLucyRichardsonMethodWithWindow(img,original, N, M, K,winN, initKernel =
             f = (1/np.sum(kernel))*f*(scipy.signal.correlate( div,kernel, mode = 'same', method='fft'))
         #print(np.where(f < 0).size)
         where_less_zero = np.where(f<0)
-        print("len ", len(where_less_zero[0]))
+        #print("len ", len(where_less_zero[0]))
         for it in range(len(where_less_zero[0])):
             if where_less_zero[0].shape[0]==0:
                 break
-            print('min', where_less_zero)
-            print(f[where_less_zero[0][it], where_less_zero[1][it]])
+            #print('min', where_less_zero)
+            #print(f[where_less_zero[0][it], where_less_zero[1][it]])
             f[where_less_zero[0][it], where_less_zero[1][it]]=0
         brightnessF = np.mean(f)
         gamma = math.log(brightnessG, brightnessF)
-        gamma-=0.1
+        #gamma-=0.2
         print('gamma =', gamma)
         f = gamma_correction(f, gamma)
-        plt.imsave('l_r_exp/uniformWin_6_f16_22_12_3/_'+str(k)+'.bmp', image.make0to1(f), cmap = 'gray' )
+        #plt.imsave('l_r_exp/horizWin_6_f16_10_01_1/_'+str(k)+'.bmp', image.make0to1(f), cmap = 'gray' )
         err.append(np.var(original-f[up:down, left:right]))
         err1.append(np.var(img - scipy.signal.fftconvolve(f, kernel, mode='same')))
     plt.figure()
@@ -199,6 +201,8 @@ def gradientDistent(g, h, itCount, gradientRate):
     plt.plot(np.array(err))
     plt.show()
     return f
+
+
 
 
 #########################################################################
@@ -299,3 +303,56 @@ def onCoordinateGradientDescent(g, itCount, step, kernelType):
         print(err)
         errors.append(err)
     return f, h, np.array(errors)
+#########################################################################
+def blindLucyRichardsonWithKernel(img, N, M, K, kernel):
+    brightnessG=np.mean(img)
+    f = np.copy(img)
+    for k in range(K):
+        print(k)
+        for n in range(N):
+            print('n--', n)
+            r = scipy.signal.fftconvolve(kernel, f, mode='same')
+            div = img / r
+            kernel = (1 / np.sum(f)) * kernel * (scipy.signal.correlate(div, f, mode='same', method='fft'))
+        kernel /= np.sum(kernel)
+
+        for m in range(M):
+            print('m--', m)
+            r = scipy.signal.fftconvolve(kernel, f, mode='same')
+            div = img / r
+            f = (1 / np.sum(kernel)) * f * (scipy.signal.correlate(div, kernel, mode='same', method='fft'))
+        # print(np.where(f < 0).size)
+        where_less_zero = np.where(f < 0)
+        # print("len ", len(where_less_zero[0]))
+        for it in range(len(where_less_zero[0])):
+            if where_less_zero[0].shape[0] == 0:
+                break
+            # print('min', where_less_zero)
+            # print(f[where_less_zero[0][it], where_less_zero[1][it]])
+            f[where_less_zero[0][it], where_less_zero[1][it]] = 0
+        brightnessF = np.mean(f)
+        gamma = math.log(brightnessG, brightnessF)
+        # gamma-=0.2
+        print('gamma =', gamma)
+        f = gamma_correction(f, gamma)
+        # plt.imsave('l_r_exp/horizWin_6_f16_10_01_1/_'+str(k)+'.bmp', image.make0to1(f), cmap = 'gray' )
+
+    return f, kernel
+
+#########################################################################
+#попробую написать с пирамидальными штуками, пока без оконных функций, но попробую с гамма коррекцией
+def pirLucyRichardson(img, N, M, K,maxPsfSize=0, initKernel = 'uniform'):
+    if maxPsfSize==0:
+        maxPsfSize = min(img.shape[0], img.shape[1])
+    kernel = filters.getGaussian(.1,(3,3))
+    s=3
+    err=[]
+    while s<=maxPsfSize:
+        miniImg = smisc.imresize(img, (s,s))
+        if s!=3:
+            kernel = smisc.imresize(kernel, (s,s))
+        f, h = blindLucyRichardsonWithKernel(miniImg, N, M, K, kernel)
+        plt.imsave("pir/02-11/1/_" + str(s) + ".bmp", image.make0to1(f), cmap='gray')
+        kernel = np.copy(h)
+        s=int(s*math.sqrt(2))
+    return f, kernel
