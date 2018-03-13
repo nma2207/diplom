@@ -12,10 +12,12 @@ def getInitKernel(img, type):
     kernel = None
     if type=='gauss':
         kernel = np.zeros(img.shape)
-        kernel[256:269, 256:269] = filters.getGaussian(10, (13,13))
+        kernel[251:264, 251:264] = filters.getGaussian(5, (13,13))
 
     elif type =='uniform':
-        kernel = scipy.signal.correlate(img,img, mode='same', method='fft')
+        kernel = np.ones(img.shape, dtype = float)
+
+        #kernel = scipy.signal.correlate(img,img, mode='same', method='fft')
         kernel /= np.sum(kernel)
     elif type == 'horizontal':
 
@@ -173,7 +175,7 @@ def blindLucyRichardsonMethodWithWindow(img,original, N, M, K,winN, initKernel =
             f[where_less_zero[0][it], where_less_zero[1][it]]=0
         brightnessF = np.mean(f)
         gamma = math.log(brightnessG, brightnessF)
-        #gamma-=0.2
+        gamma-=0.1
         print('gamma =', gamma)
         f = gamma_correction(f, gamma)
         #plt.imsave('l_r_exp/horizWin_6_f16_10_01_1/_'+str(k)+'.bmp', image.make0to1(f), cmap = 'gray' )
@@ -205,54 +207,7 @@ def gradientDistent(g, h, itCount, gradientRate):
 
 
 
-#########################################################################
-def gradientDistentBlind(g,original, itCount, gradientRate, initKernel = 'uniform'):
-    h = getInitKernel(g, initKernel)
-    brightnessG = np.mean(g)
 
-    f = np.copy(g)
-    err = []
-    for i in range(itCount):
-        print(i, end=' ')
-        r = g - scipy.signal.convolve(f, h, mode='same', method='fft')
-        dedf = - 2* (scipy.signal.correlate(r,h, mode='same', method='fft'))+2*h
-        temp_rate = gradientRate
-        while(np.min(f-temp_rate*dedf)<0):
-            temp_rate/=2.
-        f = f-temp_rate*dedf
-        # f -= gradientRate*dedf
-        # if(f.min()<0):
-        #     print("ERRROR")
-        #     f += gradientRate*dedf
-        #     break
-        dedh = -2*(scipy.signal.correlate(r,f, mode='same', method='fft'))+2*f
-
-        temp_rate = gradientRate
-        while(np.min(h-temp_rate*dedh)<0):
-            temp_rate/=2.
-        h = h-temp_rate*dedh
-        #h-=gradientRate*dedh
-        e = np.var(g - scipy.signal.convolve(f, h, mode='same', method='fft')+f*f+h*h)
-        h/=np.sum(h)
-        print(e)
-        err.append(e)
-        brightnessF = np.mean(f)
-        gamma = math.log(brightnessG, brightnessF)
-        f = gamma_correction(f, gamma)
-        print('gamma =',gamma)
-        plt.imsave("gradient_exp/2/_"+str(i)+".bmp", image.make0to1(f), cmap='gray')
-
-    plt.figure()
-    plt.subplot(1,4,1)
-    plt.imshow(g, cmap='gray')
-    plt.subplot(1,4,2)
-    plt.imshow(f, cmap='gray')
-    plt.subplot(1,4,3)
-    plt.imshow(h, cmap='gray')
-    plt.subplot(1,4,4)
-    plt.plot(np.array(err))
-    plt.show()
-    return f
 #########################################################################
 def mlDeconvolution(g,  itCount, rate, initKernel = 'gauss'):
     h = getInitKernel(g, initKernel)
@@ -269,39 +224,78 @@ def mlDeconvolution(g,  itCount, rate, initKernel = 'gauss'):
         print(err)
 
     return f
+#########################################################################
+def _stepForOnCoordinateDescent(dedf, f, step):
+    res = np.copy(f)
+    makeStep = False
+    while not makeStep and np.max(np.abs(dedf))>0:
+        argMax = np.argmax(np.abs(dedf))
+        i = argMax//dedf.shape[0]
+        j = argMax%dedf.shape[1]
+
+        #значит dedf[i, j] - направление градиента
+        #смотрим можно ли сделать шаг в этом направлении и если можем, то делаем
+        stepValue = -step*dedf[i,j]
+        if stepValue>0:
+            if res[i,j]<1:
+                res[i, j] = min(1, res[i, j] + stepValue)
+                makeStep = True
+            else:
+                dedf[i,j]=0
+        elif stepValue<0:
+            if res[i,j]>0:
+                res[i,j]=max(0, res[i,j]+stepValue)
+                makeStep=True
+            else:
+                dedf[i,j]=0
+        else:
+            print("_step on coord descent error")
+    return res
 
 #########################################################################
-def onCoordinateGradientDescent(g, itCount, step, kernelType):
+def onCoordinateGradientDescent(g,original, itCount,gamma,step, kernelType):
+    """
+    по-координатный градиентный спуск от Руслана Рафиковича
+    предположим, что изображение и ядро имеют значния  [0 .. 1]
+    :param g:
+    :param itCount:
+    :param step:
+    :param kernelType:
+    :return:
+    """
     h = getInitKernel(g, kernelType)
     f = np.copy(g)
     errors = []
+    err_origin=[]
+    print('g',np.var(g-original))
+    #prev = np.copy(f)
     for k in range(itCount):
-        print(k)
-        #пробежимся по всем координатам
-        for i in range(f.shape[0]):
-            for j in range(f.shape[1]):
-                dConvdf = np.fliplr(np.flipud(h))*f[i,j]
-                r = g - scipy.signal.fftconvolve(f, h, mode='same')
-                gradient = -2*dConvdf*r
-                temp_step = step
-                while np.min(f-temp_step*gradient)<0:
-                    temp_step/=2
-                f -= temp_step*gradient
-        #так же для kernel
-        #пробежимся по всем координатам
-        for i in range(h.shape[0]):
-            for j in range(h.shape[1]):
-                dConvdh = np.fliplr(np.flipud(f))*h[i,j]
-                r = g - scipy.signal.fftconvolve(f, h, mode='same')
-                gradient = -2*dConvdh*r
-                temp_step = step
-                while np.min(h-temp_step*gradient):
-                    temp_step/=2
-                h -= temp_step*gradient
-        plt.imsave("on_coord_dist/1/_" + str(i) + ".bmp", image.make0to1(f), cmap='gray')
+        #prev = np.copy(f)
+        #для начала надо найти dE/dh и dE/df, где E= ||g-f*h||
+        r_h = g - scipy.signal.convolve(f, h, mode='same', method='fft')
+        dEdh = - 2* (scipy.signal.correlate(r_h,f, mode='same', method='fft'))
+        #надо найти абсолютный максимум, и если мы можем его сделать, то делаем, если нет, то не делаем
+        #возможно надо вынести в отдельную фукнцию, т.к. для f тоже самое
+        #только градиент другой и все.
+        h = _stepForOnCoordinateDescent(dEdh, h, step)
+        r_f =g - scipy.signal.convolve(f, h, mode='same', method='fft')
+        dEdf = - 2 * (scipy.signal.correlate(r_f, h, mode='same', method='fft'))
+        f = _stepForOnCoordinateDescent(dEdf, f , step=step)
+        plt.imsave("on_coord_dist/02-22/_" + str(k) + ".bmp", image.make0to1(f), cmap='gray')
         err = np.var(g - scipy.signal.fftconvolve(f, h, mode='same'))
-        print(err)
+        err2 = np.var(original-f)
+        # if k>0 and err2>err_origin[-1]:
+        #     f = np.copy(prev)
+        #     step/=2
+        #     print("stp / 2 = ",step)
+        print(k,err2)
         errors.append(err)
+        err_origin.append(err2)
+    err_origin=np.array(err_origin)
+    plt.figure()
+    plt.plot(np.array(err_origin))
+    plt.show()
+    print('original vs deblur', np.min(err_origin))
     return f, h, np.array(errors)
 #########################################################################
 def blindLucyRichardsonWithKernel(img, N, M, K, kernel):
@@ -356,3 +350,94 @@ def pirLucyRichardson(img, N, M, K,maxPsfSize=0, initKernel = 'uniform'):
         kernel = np.copy(h)
         s=int(s*math.sqrt(2))
     return f, kernel
+
+
+##########################################################################
+#  на основе инверсного фильтра
+def inverseFilterBlind(g, alpha, itCount, initKernel = 'uniform'):
+    h = getInitKernel(g, initKernel)
+
+    width=g.shape[0]
+    height=g.shape[1]
+    doubleG = np.zeros((width*2, height*2))
+    doubleH = np.zeros((width*2, height*2))
+
+    doubleG[:width, :height] = g
+    doubleH[:width, :height] = h
+
+
+    G = np.fft.fft2(doubleG)
+    F = np.copy(G)
+    H = np.fft.fft2(doubleH)
+    F +=1e-3
+    H+=1e-3
+    for i in range(itCount):
+        print(i)
+        H = (G*np.conjugate(F) )/ (np.abs(F)**2 + alpha / (np.abs(H)**2))
+        F = (G*np.conjugate(H) )/ (np.abs(H)**2 + alpha / (np.abs(F)**2))
+
+    h = np.fft.ifft2(H)
+    h = np.real(h)
+    h = h[:width, :height]
+
+    f = np.fft.ifft2(F)
+    f = np.real(f)
+    f = f[:width, :height]
+    return f, h
+
+
+##########################################################################
+# Градиентный спуск с очень адаптивным шагом :D
+#проверяем, не вышли ли мы за границу [0, 1]
+def _inArea(f):
+    #print(np.min(f), np.max(f))
+    if np.min(f)<-1e-8 or np.max(f)>1:
+        return False
+    else:
+        return True
+#делаем шаг
+def _makeStepGradientDistent(f, dEdf, step, regresCoeff):
+    #print(np.max(dEdf), np.min(dEdf))
+    while not _inArea(f-step*dEdf):
+        step*=regresCoeff
+        #print('try', step)
+    #print('good', step)
+    return f-step*dEdf
+
+# сам градиентый
+def gradientDistentBlind(g, img, itCount, step, regresCoeff, initKernel = "uniform"):
+    h = getInitKernel(g, initKernel)
+    f = np.copy(g)
+    error1 = []
+    error2 = []
+    error1.append(np.var(g - scipy.signal.fftconvolve(f, h, mode='same')))
+    error2.append(np.var(img - f))
+    print('-', error2[0])
+    for k in range(itCount):
+        #prev = np.copy(f)
+        #для начала надо найти dE/dh и dE/df, где E= ||g-f*h||
+        r_h = g - scipy.signal.convolve(f, h, mode='same', method='fft')
+        dEdh = - 2* (scipy.signal.correlate(r_h,f, mode='same', method='fft'))
+        h = _makeStepGradientDistent(h, dEdh, step, regresCoeff)
+
+        r_f = g - scipy.signal.convolve(f, h, mode='same', method='fft')
+        dEdf = - 2 * (scipy.signal.correlate(r_f, h, mode='same', method='fft'))
+        f = _makeStepGradientDistent(f, dEdf, step, regresCoeff)
+
+        err1 = np.var(g - scipy.signal.fftconvolve(f, h, mode='same'))
+        err2 = np.var(img - f)
+
+        error1.append(err1)
+        error2.append(err2)
+        print(k, err2)
+        if k!=0 and k%50==0:
+            step/=2
+
+    error2 = np.array(error2)
+    print('min i = ', np.argmin(error2))
+    plt.figure()
+    plt.plot(error2)
+    plt.show()
+    return f, h, np.array(error1)
+
+

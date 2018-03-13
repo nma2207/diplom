@@ -97,32 +97,7 @@ def test():
 
 
 
-#########################################################################
-def testGradientDistent():
-    img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
-    kernel = filters.getGaussian(5, (13, 13))
-    img = img / 255.
-    print('go fft')
-    dst2 = ssig.fftconvolve(img, kernel, mode='full')
-    print(dst2.shape)
-    deblurred = deblur.gradientDistentBlind(dst2,img, 150, 1e-3, initKernel="uniform")
-    byX = (dst2.shape[0] - img.shape[0])//2
-    byY = (dst2.shape[1] - img.shape[1]) // 2
-    up = byX
-    down = img.shape[0]+byX
-    left = byY
-    right = img.shape[1]+byY
-    print('original vs blur  ',np.var(img-dst2[up:down, left:right]))
-    print('original vs deblur',np.var(img - deblurred[up:down, left:right]))
 
-
-#########################################################################
-def testWindow():
-    w = deblur.windowFunctionBig(5,5,17,17)
-    print(w)
-    plt.figure()
-    plt.imshow(w, cmap = 'gray')
-    plt.show()
 
 
 
@@ -159,12 +134,12 @@ def mlTest():
 #########################################################################
 def testWindowFunc():
     img = cv2.imread('original/f16.tif', cv2.IMREAD_GRAYSCALE)
-    kernel=filters.motion_blur(10, 0)
-    #kernel = filters.getGaussian(1.5, (13, 13))
+    #kernel=filters.motion_blur(10, 0)
+    kernel = filters.getGaussian(5, (13, 13))
     dst = cv2.filter2D(img, -1, kernel)
     img = img / 255.
     print('go fft')
-    dst2 = ssig.fftconvolve(img, kernel, mode='full')
+    dst2 = ssig.fftconvolve(img, kernel, mode='same')
     print(dst2.shape)
     print('go no fft')
     # dst2 = ssig.convolve2d(img, kernel, mode = "full")
@@ -175,19 +150,23 @@ def testWindowFunc():
     # print('np.var(dst2-dst3) =', np.var(dst2-dst3))
     # print('np.mean(dst2-dst3) =', np.mean(dst2 - dst3))
     # dst2/=255
-    deblurred, err, k = deblur.blindLucyRichardsonMethodWithWindow(dst2, img, 1,1,12,0,
-                                                                   initKernel='horizontal')
+    deblurred, err, k = deblur.blindLucyRichardsonMethodWithWindow(dst2, img, 2,1,300,6,
+                                                                   initKernel='gauss')
     print(deblurred)
     # print(np.var(deblurred[:img.shape[0], :img.shape[1]] - img))
     plt.figure()
     plt.subplot(2, 4, 1)
     plt.imshow(img, cmap='gray')
+    plt.title("Original")
     plt.subplot(2, 4, 2)
     plt.imshow(dst2, cmap='gray')
+    plt.title("Blurred")
     plt.subplot(2, 4, 3)
     plt.imshow(image.make0to1(deblurred), cmap='gray')
+    plt.title("Restored")
     plt.subplot(2, 4, 4)
     plt.imshow(kernel, cmap='gray')
+    plt.title("PSF")
     plt.subplot(2, 4, 8)
     plt.imshow(k, cmap='gray')
     # debb =  restoration.richardson_lucy(dst2, kernel, iterations=50)
@@ -208,13 +187,13 @@ def testOnCoordDistent():
     dst = cv2.filter2D(img, -1, kernel)
     img = img / 255.
     print('go fft')
-    dst2 = ssig.fftconvolve(img, kernel, mode='full')
+    dst2 = ssig.fftconvolve(img, kernel, mode='same')
     print(dst2.shape)
     print('go no fft')
     # dst2 = ssig.convolve2d(img, kernel, mode = "full")
     print('np.mean(dst-img) =', np.mean(dst - img))
     print('np.var(dst-img) =', np.var(dst - img))
-    deblurred, h, errors = deblur.onCoordinateGradientDescent(dst2, 100, 1e-3, "gauss")
+    deblurred, h, errors = deblur.onCoordinateGradientDescent(dst2,img, 1500, 0.005, 1e-4, "uniform")
 
     plt.figure()
     plt.subplot(2, 4, 1)
@@ -234,6 +213,8 @@ def testOnCoordDistent():
     plt.figure()
     plt.plot(errors)
     plt.show()
+    print('original vs blur  ', np.var(img - dst2))
+    print('original vs deblur', np.var(img - deblurred))
 def testFftdeblurImage():
     img = cv2.imread('D:/diplom/l_r_exp/gaussWin_6_f16_15_12_1/_63.bmp', cv2.IMREAD_GRAYSCALE)
     doubleImg = np.zeros((img.shape[0]*2, img.shape[1]*2))
@@ -285,5 +266,86 @@ def testPiramidMethod():
     # plt.imshow(debb, cmap = 'gray')
     plt.show()
 ########################################################################
+def testInverse():
+    img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
+    kernel = filters.getGaussian(5, (13, 13))
+    dst = cv2.filter2D(img, -1, kernel)
+    img = img / 255.
+    print('go fft')
+    dst2 = ssig.fftconvolve(img, kernel, mode='same')
+    print(dst2.shape)
+    print('go no fft')
+    # dst2 = ssig.convolve2d(img, kernel, mode = "full")
+    print('np.mean(dst-img) =', np.mean(dst - img))
+    print('np.var(dst-img) =', np.var(dst - img))
+    deblurred, h = deblur.inverseFilterBlind(dst2, 0.000001, 50)
+    #
+    deblurred = image.make0to1(deblurred)
+    deblurred = deblur.gamma_correction(deblurred, 1.1)
+    print(np.min(deblurred), np.max(deblurred))
+
+    plt.figure()
+    plt.subplot(2, 4, 1)
+    plt.imshow(img, cmap='gray')
+    plt.subplot(2, 4, 2)
+    plt.imshow(dst2, cmap='gray')
+    plt.subplot(2, 4, 3)
+    plt.imshow(image.make0to1(deblurred), cmap='gray')
+    plt.subplot(2, 4, 4)
+    plt.imshow(kernel, cmap='gray')
+    plt.subplot(2, 4, 8)
+    plt.imshow(h, cmap='gray')
+    # debb =  restoration.richardson_lucy(dst2, kernel, iterations=50)
+
+    plt.show()
+    # plt.imshow(debb, cmap = 'gray')
+    print('original vs blur  ', np.var(img - dst2))
+    print('original vs deblur', np.var(img - deblurred))
+
+########################################################################
+def testGradietnDistent():
+    img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
+    kernel = filters.getGaussian(5, (13, 13))
+    dst = cv2.filter2D(img, -1, kernel)
+    img = img / 255.
+    print('go fft')
+    dst2 = ssig.fftconvolve(img, kernel, mode='same')
+    print(dst2.shape)
+    print('go no fft')
+    # dst2 = ssig.convolve2d(img, kernel, mode = "full")
+    print('np.mean(dst-img) =', np.mean(dst - img))
+    print('np.var(dst-img) =', np.var(dst - img))
+    deblurred, h, errs = deblur.gradientDistentBlind(dst2, img, itCount= 1270,
+                                                                step = 0.005,
+                                                                regresCoeff=0.9,
+                                                                initKernel='gauss')
+    #
+    #deblurred = image.make0to1(deblurred)
+    #deblurred = deblur.gamma_correction(deblurred, 1.1)
+    print(np.min(deblurred), np.max(deblurred))
+
+    plt.figure()
+    plt.subplot(2, 4, 1)
+    plt.imshow(img, cmap='gray')
+    plt.subplot(2, 4, 2)
+    plt.imshow(dst2, cmap='gray')
+    plt.subplot(2, 4, 3)
+    plt.imshow(image.make0to1(deblurred), cmap='gray')
+    plt.subplot(2, 4, 4)
+    plt.imshow(kernel, cmap='gray')
+    plt.subplot(2, 4, 8)
+    plt.imshow(h, cmap='gray')
+    # debb =  restoration.richardson_lucy(dst2, kernel, iterations=50)
+    plt.show()
+    plt.plot(errs)
+    plt.show()
+    # plt.imshow(debb, cmap = 'gray')
+    print('original vs blur  ', np.var(img - dst2))
+    print('original vs deblur', np.var(img - deblurred))
+
+
+
+
+########################################################################
 if __name__ == "__main__":
-    testPiramidMethod()
+    testGradietnDistent()
