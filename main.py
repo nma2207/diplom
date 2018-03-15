@@ -9,6 +9,8 @@ import scipy.signal as ssig
 import deblur
 from skimage import restoration
 import image
+import deeplearn_deconvolution
+import scipy.misc as smisc
 #########################################################################
 def mainCV2():
     img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
@@ -305,7 +307,7 @@ def testInverse():
 ########################################################################
 def testGradietnDistent():
     img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
-    kernel = filters.getGaussian(5, (13, 13))
+    kernel = filters.getGaussian(31, (13, 13))
     dst = cv2.filter2D(img, -1, kernel)
     img = img / 255.
     print('go fft')
@@ -315,9 +317,9 @@ def testGradietnDistent():
     # dst2 = ssig.convolve2d(img, kernel, mode = "full")
     print('np.mean(dst-img) =', np.mean(dst - img))
     print('np.var(dst-img) =', np.var(dst - img))
-    deblurred, h, errs = deblur.gradientDistentBlind(dst2, img, itCount= 1270,
-                                                                step = 0.005,
-                                                                regresCoeff=0.9,
+    deblurred, h, errs = deblur.gradientDistentBlind(dst2, img, itCount= 1000,
+                                                                step = 0.0005,
+                                                                regresCoeff=0.4,
                                                                 initKernel='gauss')
     #
     #deblurred = image.make0to1(deblurred)
@@ -343,9 +345,18 @@ def testGradietnDistent():
     print('original vs blur  ', np.var(img - dst2))
     print('original vs deblur', np.var(img - deblurred))
 
+def deepLearningTest():
+    img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
 
+    img = smisc.imresize(img, (128, 128))
+    kernel = filters.getGaussian(31, (13, 13))
+    dst = ssig.fftconvolve(img, kernel, mode='same')
+    deconvoluinator = deeplearn_deconvolution.Deconvoluinator3000(128)
+    img = np.reshape(img, (1,128,128,1))
+    dst = np.reshape(dst, (1, 128, 128, 1))
+    deconvoluinator.fit(dst, img, 10, 1e-4, 1e-4, 0.005)
 
 
 ########################################################################
 if __name__ == "__main__":
-    testGradietnDistent()
+    deepLearningTest()

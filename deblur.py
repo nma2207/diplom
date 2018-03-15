@@ -430,8 +430,8 @@ def gradientDistentBlind(g, img, itCount, step, regresCoeff, initKernel = "unifo
         error1.append(err1)
         error2.append(err2)
         print(k, err2)
-        if k!=0 and k%50==0:
-            step/=2
+        # if k!=0 and k%50==0:
+        #     step/=2
 
     error2 = np.array(error2)
     print('min i = ', np.argmin(error2))
