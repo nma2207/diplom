@@ -347,16 +347,57 @@ def testGradietnDistent():
 
 def deepLearningTest():
     img = cv2.imread('original/lena.bmp', cv2.IMREAD_GRAYSCALE)
-
-    img = smisc.imresize(img, (128, 128))
-    kernel = filters.getGaussian(31, (13, 13))
+    image_size = 32
+    img = smisc.imresize(img, (image_size, image_size))
+    kernel = filters.getGaussian(1, (13, 13))
     dst = ssig.fftconvolve(img, kernel, mode='same')
-    deconvoluinator = deeplearn_deconvolution.Deconvoluinator3000(128)
-    img = np.reshape(img, (1,128,128,1))
-    dst = np.reshape(dst, (1, 128, 128, 1))
-    deconvoluinator.fit(dst, img, 10, 1e-4, 1e-4, 0.005)
+    deconvoluinator = deeplearn_deconvolution.Deconvoluinator3000(image_size)
+    img = np.reshape(img, (image_size,image_size,1))
+    dst = np.reshape(dst, (image_size, image_size, 1))
+
+
+
+    print('good')
+
+    #x = deconvoluinator.predict(dst)
+
+    img2 = cv2.imread('original/f16.tif', cv2.IMREAD_GRAYSCALE)
+    img2 = smisc.imresize(img2, (image_size, image_size))
+
+    dst2 = ssig.fftconvolve(img2, kernel, mode='same')
+    img2 = np.reshape(img2, (image_size, image_size, 1))
+    dst2 = np.reshape(dst2, (image_size, image_size, 1))
+
+    train_x = np.array([dst])
+    train_y = np.array([img])
+    #train_x[0] = img
+    #train_x[1] = img2
+
+    print(train_x.shape)
+    deconvoluinator.fit(train_x, train_y, 5000, 1e-4,1e-4, 0.0005)
+
+    dst = np.reshape(dst, (1, image_size, image_size, 1))
+    test = np.array([dst2])
+    x = deconvoluinator.predict(test)
+
+    plt.figure()
+    plt.subplot(1, 4,  1)
+    plt.imshow(img[:,:,0], cmap='gray')
+    plt.subplot(1, 4, 2)
+    plt.imshow(dst[0, :, :, 0], cmap='gray')
+    plt.subplot(1,4,3)
+    plt.imshow(x[ :, :,0, 0], cmap='gray')
+    plt.subplot(1,4,4)
+    plt.imshow(kernel, cmap='gray')
+    plt.show()
+    print('original vs blur  ', np.var(img[:,:,0] - dst[0, :, :, 0]))
+    print('original vs deblur', np.var(kernel - x[ :, :,0, 0]))
+
 
 
 ########################################################################
 if __name__ == "__main__":
-    deepLearningTest()
+    #deeplearn_deconvolution.fitModel()
+    deeplearn_deconvolution.fitModel()
+    #deeplearn_deconvolution.createDataSet()
+    #deepLearningTest()
